@@ -9,20 +9,18 @@ import Notifications from "./Notifications.js";
 
 import ClashJS from "../clashjs/ClashCore.js";
 
-import playerObjects from "../Players.js";
-const playerDefinitionArray = _.shuffle(_.map(playerObjects, (el) => el));
+// import playerObjects from "../Players.js";
+// const playerDefinitionArray = _.shuffle(_.map(playerObjects, (el) => el));
+// console.log({ playerDefinitionArray});
 
 const DEBUG = document.location.search.includes("debug");
 
-const DEFAULT_SPEED = DEBUG ? 32 : 200;
-const MAX_SPEED = DEBUG ? 32 : 100;
-// const DEFAULT_SPEED = 4;
-// const MAX_SPEED = 4;
+// const DEFAULT_SPEED = DEBUG ? 32 : 200;
+// const MAX_SPEED = DEBUG ? 32 : 100;
+const DEFAULT_SPEED = 4;
+const MAX_SPEED = 4;
 
 const EXPIRE_NOTIF_TIME = 7 * 1000;
-
-const ClashInstance = ClashJS(playerDefinitionArray);
-ClashInstance.newGame();
 
 class Clash extends React.Component {
   constructor(props) {
@@ -35,10 +33,60 @@ class Clash extends React.Component {
       notifications: [],
       finished: false,
     };
+    const playerDefinitionArray = this.props.players.map(
+      ({ id, name, style }) => ({
+        info: {
+          name,
+          style,
+        },
+        ai: async (player, enemies, map) => {
+          const url = `/players/${id}.json`;
+          await fetch(url, {
+            method: "PUT",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              player: {
+                waiting_for_command: true,
+                state_json: JSON.stringify({
+                  player,
+                  enemies,
+                  map,
+                }),
+              },
+            }),
+          });
+          await new Promise((resolve) => {
+            setTimeout(resolve, 200);
+          });
+          const data = await fetch(url, {
+            method: "PUT",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              player: {
+                waiting_for_command: false,
+              },
+            }),
+          }).then((res) => res.json());
+          const command = data.command;
+          console.log({ id, command });
+          return command;
+        },
+      })
+    );
+    console.log({ playerDefinitionArray });
+
+    this.ClashInstance = new ClashJS(playerDefinitionArray);
+    this.ClashInstance.newGame();
   }
 
   componentWillMount() {
-    ClashInstance.addListener(({ name, payload }) => {
+    this.ClashInstance.addListener(({ name, payload }) => {
       if (name === "SHOOT") {
         this.setState((state) => {
           return {
@@ -89,7 +137,10 @@ class Clash extends React.Component {
   }
 
   newGame() {
-    if (ClashInstance.getState().rounds >= ClashInstance.getState().totalRounds) {
+    if (
+      this.ClashInstance.getState().rounds >=
+      this.ClashInstance.getState().totalRounds
+    ) {
       return;
     }
 
@@ -102,12 +153,12 @@ class Clash extends React.Component {
         speed: DEFAULT_SPEED,
       },
       () => {
-        ClashInstance.newGame();
+        this.ClashInstance.newGame();
       }
     );
   }
 
-  nextTurn() {
+  async nextTurn() {
     const { speed, finished } = this.state;
 
     if (finished) {
@@ -116,11 +167,14 @@ class Clash extends React.Component {
 
     this.setState(
       {
-        clashState: ClashInstance.nextPly(),
-        speed: this.state.speed > MAX_SPEED ? parseInt(this.state.speed * 0.98, 10) : MAX_SPEED,
+        clashState: await this.ClashInstance.nextPly(),
+        speed:
+          this.state.speed > MAX_SPEED
+            ? parseInt(this.state.speed * 0.98, 10)
+            : MAX_SPEED,
       },
       () => {
-        const alivePlayerCount = ClashInstance.getAlivePlayerCount();
+        const alivePlayerCount = this.ClashInstance.getAlivePlayerCount();
 
         if (alivePlayerCount >= 2) {
           window.setTimeout(() => {
@@ -133,12 +187,15 @@ class Clash extends React.Component {
 
   handleKill({ killer, killed }) {
     this.pushNotification({
-      text: `${killer.name} eliminated ${_.map(killed, (player) => player.name).join(",")}`,
+      text: `${killer.name} eliminated ${_.map(
+        killed,
+        (player) => player.name
+      ).join(",")}`,
     });
   }
 
   endGame() {
-    const clashState = ClashInstance.getState();
+    const clashState = this.ClashInstance.getState();
 
     const winner = _.sortBy(
       clashState.gameStats,
@@ -147,7 +204,11 @@ class Clash extends React.Component {
 
     this.pushNotification({
       expire: Infinity,
-      text: <b style={{ color: "#2ecc71", fontWeight: 600 }}>Congratulations {winner.name}!</b>,
+      text: (
+        <b style={{ color: "#2ecc71", fontWeight: 600 }}>
+          Congratulations {winner.name}!
+        </b>
+      ),
     });
 
     this.pushNotification({
@@ -164,7 +225,8 @@ class Clash extends React.Component {
             }}
             onClick={() => {
               window.location.reload();
-            }}>
+            }}
+          >
             Start Again
           </button>
         </div>
@@ -204,13 +266,16 @@ class Clash extends React.Component {
       rounds,
       totalRounds,
       gameEnvironment,
-    } = ClashInstance.getState();
+    } = this.ClashInstance.getState();
 
     return (
       <div className="clash">
         <Tiles gridSize={gameEnvironment.gridSize} />
         <Shoots shoots={shoots.slice()} gridSize={gameEnvironment.gridSize} />
-        <Ammos gridSize={gameEnvironment.gridSize} ammoPosition={gameEnvironment.ammoPosition} />
+        <Ammos
+          gridSize={gameEnvironment.gridSize}
+          ammoPosition={gameEnvironment.ammoPosition}
+        />
         <PlayersRender
           speed={speed}
           gridSize={gameEnvironment.gridSize}

@@ -13,27 +13,27 @@ const MAP_SIZE = window.innerWidth > 720 ? 13 : 11;
 
 const ClashEmitter = new EventEmitter();
 
-let STATE = {
-  running: false,
-
-  currentPlayer: 0,
-
-  gameEnvironment: {
-    gridSize: MAP_SIZE,
-    ammoPosition: [],
-  },
-  suddenDeathCount: 0,
-  totalRounds: TOTAL_ROUNDS,
-  rounds: 0,
-
-  playerInstances: [],
-  playerStates: [],
-
-  playerDefinition: {},
-  gameStats: {},
-};
-
 function ClashJS(playerDefinitionArray) {
+  let STATE = {
+    running: false,
+
+    currentPlayer: 0,
+
+    gameEnvironment: {
+      gridSize: MAP_SIZE,
+      ammoPosition: [],
+    },
+    suddenDeathCount: 0,
+    totalRounds: TOTAL_ROUNDS,
+    rounds: 0,
+
+    playerInstances: [],
+    playerStates: [],
+
+    playerDefinition: {},
+    gameStats: {},
+  };
+
   STATE.playerInstances = playerDefinitionArray.map((playerDefinition) => {
     const player = new PlayerClass(playerDefinition);
     STATE.gameStats[player.id] = {
@@ -46,7 +46,6 @@ function ClashJS(playerDefinitionArray) {
   });
 
   function emit(name, payload) {
-    console.info("ClashCore: Emit", { name, payload });
     ClashEmitter.emit("CLASHJS", { name, payload });
   }
 
@@ -140,7 +139,10 @@ function ClashJS(playerDefinitionArray) {
           name: playerInstance.name,
           id: playerInstance.id,
           style: playerInstance.info.style,
-          position: [Math.floor(Math.random() * gridSize), Math.floor(Math.random() * gridSize)],
+          position: [
+            Math.floor(Math.random() * gridSize),
+            Math.floor(Math.random() * gridSize),
+          ],
           direction: DIRECTIONS[directionAngle],
           directionAngle: directionAngle,
           ammo: 0,
@@ -179,7 +181,7 @@ function ClashJS(playerDefinitionArray) {
       );
     },
 
-    nextPly() {
+    async nextPly() {
       let clonedStates = _.cloneDeep(STATE.playerStates);
 
       STATE.suddenDeathCount++;
@@ -204,7 +206,7 @@ function ClashJS(playerDefinitionArray) {
       if (STATE.playerStates[STATE.currentPlayer].isAlive) {
         savePlayerAction(
           STATE.currentPlayer,
-          STATE.playerInstances[STATE.currentPlayer].execute(
+          await STATE.playerInstances[STATE.currentPlayer].execute(
             clonedStates[STATE.currentPlayer],
             otherPlayers,
             _.cloneDeep(STATE.gameEnvironment)
@@ -212,10 +214,12 @@ function ClashJS(playerDefinitionArray) {
         );
       }
 
-      STATE.currentPlayer = (STATE.currentPlayer + 1) % STATE.playerInstances.length;
+      STATE.currentPlayer =
+        (STATE.currentPlayer + 1) % STATE.playerInstances.length;
 
       if (
-        STATE.gameEnvironment.ammoPosition.length < STATE.playerStates.length / 1.3 &&
+        STATE.gameEnvironment.ammoPosition.length <
+          STATE.playerStates.length / 1.3 &&
         Math.random() > 0.93
       ) {
         createAmmo();
