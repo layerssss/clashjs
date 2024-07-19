@@ -9,9 +9,8 @@ import Notifications from "./Notifications.js";
 
 import ClashJS from "../clashjs/ClashCore.js";
 
-// import playerObjects from "../Players.js";
-// const playerDefinitionArray = _.shuffle(_.map(playerObjects, (el) => el));
-// console.log({ playerDefinitionArray});
+import playerObjects from "../Players.js";
+const playerDefinitionArray = _.shuffle(_.map(playerObjects, (el) => el));
 
 const DEBUG = document.location.search.includes("debug");
 
@@ -33,8 +32,17 @@ class Clash extends React.Component {
       notifications: [],
       finished: false,
     };
-    const playerDefinitionArray = this.props.players.map(
-      ({ id, name, style }) => ({
+    const playerDefinitionArray = _.shuffle([
+      // Merge built-in AI players with Rails suppiled players
+      require("../players/manuelmhtr.js"),
+      require("../players/ericku.js"),
+      require("../players/siegfried.js"),
+      require("../players/horror.js"),
+      require("../players/elperron.js"),
+      require("../players/yuno.js"),
+      require("../players/xmontoya.js"),
+      require("../players/margeux.js"),
+      ...this.props.players.map(({ id, name, style }) => ({
         info: {
           name,
           style,
@@ -74,13 +82,10 @@ class Clash extends React.Component {
             }),
           }).then((res) => res.json());
           const command = data.command;
-          console.log({ id, command });
           return command;
         },
-      })
-    );
-    console.log({ playerDefinitionArray });
-
+      })),
+    ]);
     this.ClashInstance = new ClashJS(playerDefinitionArray);
     this.ClashInstance.newGame();
   }
